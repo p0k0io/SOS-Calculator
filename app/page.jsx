@@ -6,6 +6,8 @@ export default function Home() {
   const [uploadStatus, setUploadStatus] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [iaResponse, setIaResponse] = useState("");
+  const [loading, setLoading] = useState(false);
+
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -47,28 +49,29 @@ export default function Home() {
   // Petición al servidor para enviar la imagen a Ollama
   const questionIA = async (imageUrl) => {
     try {
+      setLoading(true); // <-- Activar spinner
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ imageUrl }), // 👈 enviar la URL pública
+        body: JSON.stringify({ imageUrl }),
       });
   
       if (!res.ok) {
         const errorText = await res.text();
-        console.error("Error en respuesta de la API de IA:", errorText);
         throw new Error(errorText);
       }
   
       const data = await res.json();
-      console.log("Respuesta de la IA:", data);
       setIaResponse(data.response);
     } catch (error) {
-      console.error("Error al consultar la IA:", error.message);
       setIaResponse("Error al procesar la imagen");
+    } finally {
+      setLoading(false); // <-- Desactivar spinner
     }
   };
+  
   
 
   return (
@@ -124,12 +127,19 @@ export default function Home() {
             </form>
 
             {/* Mostrar respuesta de la IA */}
-            {iaResponse && (
-              <div className="mt-6 p-4 bg-slate-100 rounded-lg text-center text-gray-800">
-                <p className="font-bold">Respuesta IA:</p>
-                <p>{iaResponse}</p>
-              </div>
-            )}
+            {loading && (
+        <div className="mt-6 flex justify-center">
+          <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
+      {/* Respuesta de la IA */}
+      {iaResponse && !loading && (
+        <div className="mt-6 p-4 bg-slate-100 rounded-lg text-center text-gray-800 max-w-md">
+          <p className="font-bold">Respuesta IA:</p>
+          <p>{iaResponse}</p>
+        </div>
+      )}
           </div>
         </div>
       </div>

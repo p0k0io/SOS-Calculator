@@ -6,8 +6,10 @@ import https from 'https';
 export async function POST(req) {
   try {
     const { imageUrl } = await req.json();
+    console.log("📥 imageUrl recibido:", imageUrl);
 
     if (!imageUrl) {
+      console.warn("⚠️ No se proporcionó imageUrl");
       return NextResponse.json({ error: "imageUrl is required" }, { status: 400 });
     }
 
@@ -17,39 +19,62 @@ export async function POST(req) {
         https.get(url, (res) => {
           const chunks = [];
           res.on('data', (chunk) => chunks.push(chunk));
-          res.on('end', () => resolve(Buffer.concat(chunks)));
-          res.on('error', reject);
+          res.on('end', () => {
+            const buffer = Buffer.concat(chunks);
+            console.log("🖼️ Imagen descargada correctamente. Tamaño:", buffer.length);
+            resolve(buffer);
+          });
+          res.on('error', (err) => {
+            console.error("❌ Error descargando imagen:", err);
+            reject(err);
+          });
         });
       });
     };
 
     const imageBuffer = await downloadImage(imageUrl);
-    const base64Image = imageBuffer.toString('base64');
 
-    const ngrokURL = "https://1fad-2a0c-5a86-f40b-1200-283b-29fb-19b8-ff3b.ngrok-free.app/api/chat";
+    if (!imageBuffer || !imageBuffer.length) {
+      throw new Error("⚠️ imageBuffer vacío o no válido");
+    }
+
+    const base64Image = imageBuffer.toString('base64');
+    console.log("📸 Imagen convertida a base64. Longitud:", base64Image.length);
+
+    const ngrokURL = "https://c7c0-2a0c-5a86-f40b-1200-c92e-9322-3c0-34b0.ngrok-free.app/api/chat";
+
+    const bodyPayload = JSON.stringify({
+      model: 'llama3.2-vision',
+      messages: [
+        {
+          role: 'user',
+          content: `
+            Analiza la imagen adjunta (contenido y estadísticas) y calcula tu huella anual de CO₂ en kg.  
+            La respuesta debe tener este formato EXACTO, en no más de 3 líneas y sin explicaciones ni texto adicional:
+            1) "X KG de CO₂ al año"  
+            2) Una comparación breve  
+            3) Un único consejo de mejora
+          `.trim(),
+          images: [base64Image],
+        }
+      ],
+    });
+
+    console.log("📤 Enviando solicitud al servidor remoto:", ngrokURL);
 
     const response = await fetch(ngrokURL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: 'llama3.2-vision',
-        messages: [
-          {
-            role: 'user',
-            content: `
-          Analiza la imagen adjunta (contenido y estadísticas) y calcula tu huella anual de CO₂ en kg.  
-          La respuesta debe tener este formato EXACTO, en no más de 3 líneas y sin explicaciones ni texto adicional:
-          1) "X KG de CO₂ al año"  
-          2) Una comparación breve  
-          3) Un único consejo de mejora
-            `.trim(),
-            images: [base64Image],
-          }
-        ],
-      }),
+      body: bodyPayload,
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Error de red o respuesta HTTP:", response.status, errorText);
+      throw new Error(`Error del servidor remoto: ${response.status}`);
+    }
 
     const rawText = await response.text();
     console.log("🔵 Respuesta RAW del servidor remoto:", rawText);
@@ -60,20 +85,23 @@ export async function POST(req) {
     for (const line of lines) {
       try {
         const jsonLine = JSON.parse(line);
+        console.log("✅ Línea parseada correctamente:", jsonLine);
         fullContent += jsonLine.message?.content || '';
       } catch (parseError) {
-        console.error("🔴 Error parseando línea:", line, parseError);
+        console.error("🔴 Error parseando línea:", line, parseError.message);
       }
     }
 
     if (!fullContent) {
+      console.error("⚠️ No se pudo reconstruir la respuesta de IA.");
       throw new Error("No se pudo reconstruir la respuesta de IA");
     }
 
+    console.log("🧠 Respuesta reconstruida correctamente:", fullContent);
     return NextResponse.json({ response: fullContent });
 
   } catch (error) {
-    console.error("🔥 Error en /api/chat:", error);
+    console.error("🔥 Error en /api/chat:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
