@@ -9,38 +9,35 @@ export default function Home() {
 
   const onSubmit = async (e) => {
     e.preventDefault();
-
+  
     if (!file) {
       setUploadStatus("No se ha seleccionado ningún archivo");
-      console.warn("No se ha seleccionado ningún archivo");
       return;
     }
-
+  
     try {
-      const data = new FormData();
-      data.append("file", file);
-
-      setUploadStatus("Subiendo archivo...");
-      console.log("Enviando archivo a /api/upload...");
-
+      setUploadStatus("Subiendo archivo a Supabase...");
+  
+      const formData = new FormData();
+      formData.append("file", file);
+  
+      // SUBIR A SUPABASE
       const res = await fetch("/api/upload", {
         method: "POST",
-        body: data,
+        body: formData,
       });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Error en respuesta de la API:", errorText);
-        throw new Error(errorText);
+  
+      const { url } = await res.json(); // 👈 obtiene la URL pública
+  
+      if (!url) {
+        throw new Error("No se pudo obtener la URL de Supabase");
       }
-
+  
       setUploadStatus("Archivo subido correctamente");
-      console.log("Archivo subido correctamente");
-
-      console.log("Nombre del archivo:", file.name);
-
-      // Enviar el nombre del archivo al backend para la API de Ollama
-      await questionIA(file.name);
+  
+      // Enviar la URL pública al endpoint de IA
+      await questionIA(url);
+  
     } catch (error) {
       setUploadStatus("Error en la subida: " + error.message);
       console.error("Error en la subida:", error.message);
@@ -48,14 +45,14 @@ export default function Home() {
   };
 
   // Petición al servidor para enviar la imagen a Ollama
-  const questionIA = async (filename) => {
+  const questionIA = async (imageUrl) => {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ filename }),
+        body: JSON.stringify({ imageUrl }), // 👈 enviar la URL pública
       });
   
       if (!res.ok) {
@@ -66,12 +63,13 @@ export default function Home() {
   
       const data = await res.json();
       console.log("Respuesta de la IA:", data);
-      setIaResponse(data.response); // <-- suponiendo que el backend devuelve { response: '...' }
+      setIaResponse(data.response);
     } catch (error) {
       console.error("Error al consultar la IA:", error.message);
       setIaResponse("Error al procesar la imagen");
     }
   };
+  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-600 p-6">

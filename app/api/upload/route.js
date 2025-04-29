@@ -1,43 +1,45 @@
-'use server'
+'use server';
 
-import fs from 'fs'
-import path from 'path'
-import { promisify } from 'util'
+import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
 
-const writeFile = promisify(fs.writeFile)
+// Configurar Supabase
+const supabase = createClient(
+  'https://rcnnhpccatfxajldgejy.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjbm5ocGNjYXRmeGFqbGRnZWp5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTkzMDQxNywiZXhwIjoyMDYxNTA2NDE3fQ.E12LWBu_nszGTk7OGw-QiqQ95YGFFAMJg_41K_W3zAA'
+);
 
 export async function POST(req) {
-  console.log("POST /api/upload iniciado")
-
   try {
-    const formData = await req.formData()
-    const file = formData.get('file')
+    const formData = await req.formData();
+    const file = formData.get('file');
 
     if (!file) {
-      console.warn("No se recibió ningún archivo")
-      return new Response('No file uploaded', { status: 400 })
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
 
-    const uploadDir = path.join(process.cwd(), 'uploads')
-    if (!fs.existsSync(uploadDir)) {
-      console.log("Creando directorio de uploads...")
-      fs.mkdirSync(uploadDir, { recursive: true })
+    const fileName = `${Date.now()}-${file.name}`;
+
+    const { data, error } = await supabase.storage
+      .from('upload') // nombre del bucket
+      .upload(fileName, fileBuffer, {
+        contentType: file.type || 'image/png',
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) {
+      console.error('Error al subir a Supabase:', error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Limpiar el nombre del archivo para evitar vulnerabilidades
-    const safeFileName = path.basename(file.name)
-    const filePath = path.join(uploadDir, safeFileName)
+    const publicUrl = `https://rcnnhpccatfxajldgejy.supabase.co/storage/v1/object/public/upload/${fileName}`;
 
-    console.log("Guardando archivo en:", filePath)
-    await writeFile(filePath, buffer)
-
-    console.log("Archivo guardado correctamente")
-    return new Response('File uploaded successfully', { status: 200 })
-  } catch (e) {
-    console.error("Error en la subida del archivo:", e)
-    return new Response('File upload failed', { status: 500 })
+    return NextResponse.json({ url: publicUrl });
+  } catch (err) {
+    console.error('Error general en upload:', err);
+    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
   }
 }

@@ -1,17 +1,29 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import https from 'https';
 
 export async function POST(req) {
   try {
-    const { filename } = await req.json();
+    const { imageUrl } = await req.json();
 
-    if (!filename) {
-      return NextResponse.json({ error: "Filename is required" }, { status: 400 });
+    if (!imageUrl) {
+      return NextResponse.json({ error: "imageUrl is required" }, { status: 400 });
     }
 
-    const filePath = path.join(process.cwd(), 'uploads', filename);
-    const imageBuffer = fs.readFileSync(filePath);
+    // Descargar la imagen desde la URL
+    const downloadImage = (url) => {
+      return new Promise((resolve, reject) => {
+        https.get(url, (res) => {
+          const chunks = [];
+          res.on('data', (chunk) => chunks.push(chunk));
+          res.on('end', () => resolve(Buffer.concat(chunks)));
+          res.on('error', reject);
+        });
+      });
+    };
+
+    const imageBuffer = await downloadImage(imageUrl);
     const base64Image = imageBuffer.toString('base64');
 
     const ngrokURL = "https://1fad-2a0c-5a86-f40b-1200-283b-29fb-19b8-ff3b.ngrok-free.app/api/chat";
@@ -35,7 +47,6 @@ export async function POST(req) {
             `.trim(),
             images: [base64Image],
           }
-          
         ],
       }),
     });
@@ -43,7 +54,6 @@ export async function POST(req) {
     const rawText = await response.text();
     console.log("🔵 Respuesta RAW del servidor remoto:", rawText);
 
-    // Separar cada línea (cada JSON)
     const lines = rawText.trim().split('\n');
     let fullContent = "";
 

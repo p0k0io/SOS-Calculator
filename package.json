@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
     "cors": "^2.8.5",
     "formidable": "^3.5.4",
     "next": "15.3.1",
