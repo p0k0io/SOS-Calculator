@@ -13,7 +13,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "imageUrl is required" }, { status: 400 });
     }
 
-    // Descargar la imagen desde la URL
+  
     const downloadImage = (url) => {
       return new Promise((resolve, reject) => {
         https.get(url, (res) => {
