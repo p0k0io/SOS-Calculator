@@ -22,22 +22,20 @@ export default function Home() {
   
       const formData = new FormData();
       formData.append("file", file);
-  
-      // SUBIR A SUPABASE
+
       const res = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
   
-      const { url } = await res.json(); // 👈 obtiene la URL pública
+      const { url } = await res.json();
   
       if (!url) {
         throw new Error("No se pudo obtener la URL de Supabase");
       }
   
       setUploadStatus("Archivo subido correctamente");
-  
-      // Enviar la URL pública al endpoint de IA
+
       await questionIA(url);
   
     } catch (error) {
@@ -46,10 +44,9 @@ export default function Home() {
     }
   };
 
-  // Petición al servidor para enviar la imagen a Ollama
   const questionIA = async (imageUrl) => {
     try {
-      setLoading(true); // <-- Activar spinner
+      setLoading(true); 
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -68,7 +65,7 @@ export default function Home() {
     } catch (error) {
       setIaResponse("Error al procesar la imagen");
     } finally {
-      setLoading(false); // <-- Desactivar spinner
+      setLoading(false); 
     }
   };
   
@@ -126,14 +123,13 @@ export default function Home() {
               </button>
             </form>
 
-            {/* Mostrar respuesta de la IA */}
+
             {loading && (
         <div className="mt-6 flex justify-center">
           <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
-      {/* Respuesta de la IA */}
       {iaResponse && !loading && (
         <div className="mt-6 p-4 bg-slate-100 rounded-lg text-center text-gray-800 max-w-md">
           <p className="font-bold">Respuesta IA:</p>
@@ -144,7 +140,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Modal */}
+
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full relative shadow-2xl">
