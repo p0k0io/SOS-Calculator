@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 import https from 'https';
 
 export async function POST(req) {
@@ -11,7 +13,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "imageUrl is required" }, { status: 400 });
     }
 
-
+    // Descargar la imagen desde la URL
     const downloadImage = (url) => {
       return new Promise((resolve, reject) => {
         https.get(url, (res) => {
@@ -19,11 +21,11 @@ export async function POST(req) {
           res.on('data', (chunk) => chunks.push(chunk));
           res.on('end', () => {
             const buffer = Buffer.concat(chunks);
-           
+            console.log("🖼️ Imagen descargada correctamente. Tamaño:", buffer.length);
             resolve(buffer);
           });
           res.on('error', (err) => {
-
+            console.error("❌ Error descargando imagen:", err);
             reject(err);
           });
         });
@@ -67,6 +69,36 @@ export async function POST(req) {
       },
       body: bodyPayload,
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Error de red o respuesta HTTP:", response.status, errorText);
+      throw new Error(`Error del servidor remoto: ${response.status}`);
+    }
+
+    const rawText = await response.text();
+    console.log("🔵 Respuesta RAW del servidor remoto:", rawText);
+
+    const lines = rawText.trim().split('\n');
+    let fullContent = "";
+
+    for (const line of lines) {
+      try {
+        const jsonLine = JSON.parse(line);
+        console.log("✅ Línea parseada correctamente:", jsonLine);
+        fullContent += jsonLine.message?.content || '';
+      } catch (parseError) {
+        console.error("🔴 Error parseando línea:", line, parseError.message);
+      }
+    }
+
+    if (!fullContent) {
+      console.error("⚠️ No se pudo reconstruir la respuesta de IA.");
+      throw new Error("No se pudo reconstruir la respuesta de IA");
+    }
+
+    console.log("🧠 Respuesta reconstruida correctamente:", fullContent);
+    return NextResponse.json({ response: fullContent });
 
   } catch (error) {
     console.error("🔥 Error en /api/chat:", error.message);
